@@ -2,13 +2,27 @@ from plyfile import *
 import numpy as np
 import matplotlib.pyplot as plt
 from mcpi.minecraft import Minecraft
+import os
 
 
 
-
+# Make Code more Modular, method for removing structure, method for adding it so button work for it. Ability for user to change voxel size to scale structure.
+# Method to rotate structure
 
 def main():
-    data = PlyData.read("P:\\UniWork\\Project\\BowlingClub\\Workplace\\dense\\0\\fused.ply")
+    
+    cwd = os.getcwd()
+    data_directory = os.path.join(cwd, 'workspace/dense/0/fused.ply')
+
+    print(data_directory)
+
+    if os.path.exists(data_directory) == False:
+        print("Workplace file can't be found")
+        exit()
+
+
+    
+    data = PlyData.read(data_directory)
 
     # Dictionary of block, their colours and their respective ingame ID's
     block_colour = {
