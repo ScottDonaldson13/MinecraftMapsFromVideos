@@ -1,30 +1,39 @@
-from plyfile import *
+from plyfile import PlyData
 import numpy as np
-import matplotlib.pyplot as plt
 from mcpi.minecraft import Minecraft
 import os
+import math
 
 
 
-# Make Code more Modular, method for removing structure, method for adding it so button work for it. Ability for user to change voxel size to scale structure.
-# Method to rotate structure
 
-def main():
+'''
+
+    This code is written by Scott Donaldson (2474880D)
+    This code is where the main body of the program sits that does all the manipulation of blocks and voxels to place the structure into minecraft.
+    The other file that accompanies this code is GUI.py
+
+
+
+
+'''
+
+def start(plane_horz, plane_vert, size_scaling, instruction):
+
     
+    # Creates a variable to store where the workplace file should exist.
     cwd = os.getcwd()
     data_directory = os.path.join(cwd, 'workspace/dense/0/fused.ply')
 
-    print(data_directory)
-
+    # Checks to see if the directory of the file exists
     if os.path.exists(data_directory) == False:
         print("Workplace file can't be found")
         exit()
 
-
-    
+    # Takes the file from the workplace and adds it to an array using Plyfile module.
     data = PlyData.read(data_directory)
 
-    # Dictionary of block, their colours and their respective ingame ID's
+    # Dictionary of block, their colours and their respective ingame ID's.
     block_colour = {
     '#c86646': [5, 4], #acacia plank
     '#969795': [1, 5], #andesite
@@ -107,68 +116,121 @@ def main():
     '#f9ca2b': [35, 4], #yellow wool
     }
 
-    #fig = plt.figure()
-    #ax = fig.add_subplot(projection='3d')
 
-    # Value to make changing iterations easier
+
+    # Value to make changing iterations easier.
     iteration_value=5
 
     # Creating an empty array of the size the pointcloud.
     Graph_array = np.zeros((len(data.elements[0].data[0::iteration_value]), 4)).astype(object)
     
-    # Assigning the values of the pointcloud into a numpy array and setting it as an array of x, y, z, colour
+    # Assigning the values of the pointcloud into a numpy array and setting it as an array of x, y, z, colour.
     for i in range(len(data.elements[0].data[0::iteration_value])):
         for j in range(3):
            Graph_array[i][j] = data.elements[0].data[0::iteration_value][i][j]
         Graph_array[i][3] = nearest_block_colour('%02x%02x%02x' % (data.elements[0].data[0::iteration_value][i][-3], data.elements[0].data[0::iteration_value][i][-2], data.elements[0].data[0::iteration_value][i][-1]), list(block_colour.keys()))
       
-    #print(Graph_array[:,3])
-    #ax.scatter(Graph_array[:,0], Graph_array[:,1], Graph_array[:,2], color=Graph_array[:,3], alpha=0.5)
-    
-
-    #plt.show()
-    plt.savefig("render.png")
 
     # Creating a temporary array allowing matrix operation on float values by using them as a double.
     temp_array = np.array(Graph_array[:, :3], dtype=np.double)
 
-    # Rounding the values in the array so they can be used effectively in a voxel
+    # Rounding the values in the array so they can be used effectively in a voxel.
     voxel_size = 0.1
-    voxelized_points = np.round(temp_array[:, :3]*10 / voxel_size) * voxel_size
+    voxelized_points = np.round(temp_array[:, :3]* size_scaling / voxel_size) * voxel_size
+
     
-    # Setting the values to int so they can be manipulated
+    
+    # Setting the values to int so they can be manipulated.
     voxelized_points = np.floor(voxelized_points).astype(int)
-    voxel_indices = np.unique(voxelized_points, axis=0)
+   
     
-    # Setting the shape of the voxel
-    voxel_shape = (int(np.max(voxel_indices[:, 0]) + abs(min(voxel_indices[:, 0]))), int(np.max(voxel_indices[:, 1]) + abs(min(voxel_indices[:, 1]))), int(np.max(voxel_indices[:, 2]) + abs(min(voxel_indices[:, 2]))))
-    
-    # Creating an object to hold the structure 
-    structure = np.zeros(voxel_shape).astype(object)
-
     # Connecting to the local minecraft server in order to place the structure.
-    server = Minecraft.create(address="localhost", port=4711)
+    try:
+        server = Minecraft.create(address="localhost", port=4711)
+        # connection successful
+        print("Connected to Minecraft server")
+    except ConnectionRefusedError:
+        # connection failed
+        print("Failed to connect to Minecraft server")
 
-    # Loop to tie each x, y, z coordinate to its corrosponding colour and to place it into Minecraft.
-    for i in (range(Graph_array.shape[0])):
-        x, y, z = voxelized_points[i]
+
+    # Centralising the voxel so it can be cleanly rotated, then rounding it so it can be dealt with as an int.
+    centred_voxelized_points = voxelized_points - np.mean(voxelized_points, axis=0)
+    rotated_voxelized_points = rotate_voxel(centred_voxelized_points, plane_horz, plane_vert)
+    rotated_voxelized_points -= np.min(rotated_voxelized_points, axis=0)
+    rotated_voxelized_points = np.round(rotated_voxelized_points).astype(int)
+
+
+
+
+
+    
+    # Getting the player's position to place structure around them.
+    player_pos = server.player.getTilePos()
+       
+    # Calculating distance between player and original block placement.
+    x_differential = np.round(np.mean(rotated_voxelized_points[:,0])) - player_pos.x
+    y_differential = np.round(np.mean(rotated_voxelized_points[:,1])) - player_pos.y
+    z_differential = np.round(np.mean(rotated_voxelized_points[:,2])) - player_pos.z
+    
+
+    # If statement to see whether or not the command of place or clear was sent.
+    if instruction == "place":
+        print("Placing structure")
+
+        # Looping through array of blocks placing each on as their specific block type.
+        for i in (range(Graph_array.shape[0])):
+            x, y, z = rotated_voxelized_points[i]
+            
         
-        colour = Graph_array[i, 3]
+
+            
+            colour = Graph_array[i, 3]
+                
+            try:
+                # Removing the differential from the original coordinate places the structure around the player instead of a random position.
+                server.setBlock(x-x_differential, y-y_differential, z-z_differential, block_colour[colour])
+               
+            except IndexError:
+                print(f"IndexError: ({x}, {y}, {z}) is out of bounds")
+        print("Structure has been placed") 
+
+        # Saving the position of the player when the structure was placed to a file called "player_pos.txt".
+        np.savetxt("workspace/player_pos.txt", [x_differential, y_differential, z_differential])
+       
+
+    elif instruction == "clear":
         
-        structure[x, y, z] = colour
+        print("Clearing structure")
 
-        server.setBlock(x, y, z, block_colour[colour])
+        # Checks to see if the file containing the original coordinates of the player when the structure was placed exists.
+        if os.path.isfile("workspace/player_pos.txt"):
 
-        #server.setBlock(x, y, z, [0])
+            # Loading the file with the player position and saving the coordinates to differential variables to clear the structure at the blocks where it was placed.
+            [x_differential, y_differential, z_differential] = np.loadtxt("workspace/player_pos.txt", unpack=True)
+
+            for j in (range(Graph_array.shape[0])):
+                x, y, z = rotated_voxelized_points[j]
+                
+                try:
+                    server.setBlock(x-x_differential, y-y_differential, z-z_differential, [0])
+                    
+
+                except IndexError:
+                    print(f"IndexError: ({x}, {y}, {z}) is out of bounds")
+
+            # As the blocks have been removed the file is deleted since there is no more need for the players coordinates.
+            os.remove("workspace/player_pos.txt")
+            print("Structure has been cleared")
+        else:
+            print("The file for player position does not exist.")
+           
         
-        
 
-    #ax = fig.gca(projection='3d')
-    #ax.voxels(structure)
-    #plt.show()
+   
 
 
-# Method to find the nearest block colour according to the RGB value of the pointcloud point
+# Method to find the nearest block colour according to the RGB value of the pointcloud point.
 def nearest_block_colour(hex_code, block_colours):
     
     red = int(hex_code[0:2], 16)
@@ -186,41 +248,37 @@ def nearest_block_colour(hex_code, block_colours):
     
     return closest_hex
 
-if __name__ == '__main__':
-    main()
+
+# Method to rotate the voxel.
+def rotate_voxel(array, plane_horz, plane_vert):
+
+    # Takes the degrees sent from the User in the GUI to be turned into radians.
+    transformed_horz, transformed_vert = np.radians(plane_horz), np.radians(plane_vert)
+
+    # Each axis is sent to its own method to be rotated as they use different equations.
+    rotated_y = rotation_matrix_y(transformed_vert)
+    rotated_array = np.dot(array, rotated_y)
+
+    rotated_x = rotation_matrix_x(transformed_horz)
+    rotated_array = np.dot(rotated_array, rotated_x)
+
+    rotated_z = rotation_matrix_z(transformed_horz)
+    rotated_array = np.dot(rotated_array, rotated_z)
+
+    return rotated_array
 
 
-#print(data.elements[0].data[0::100][0], data.elements[0].data[0::100][1], data.elements[0].data[0::100][2])
-#print(type(data.elements[0].data[0::10][0][-3]), data.elements[0].data[0::10][0][-2], data.elements[0].data[0::10][0][-1])
-#for i in range(len(data.elements[0].data[0::1000])):
-#   ax.scatter(data.elements[0].data[0::1000][i][0], data.elements[0].data[0::1000][i][1], 30, '#%02x%02x%02x' % (data.elements[0].data[0::1000][i][-3], data.elements[0].data[0::1000][i][-2], data.elements[0].data[0::1000][i][-1]), alpha=0.2)
-    
-#ax.scatter(data.elements[0].data[0::100][:][0], data.elements[0].data[0::100][:][1], data.elements[0].data[0::100][:][2], color='#%02x%02x%02x' % (data.elements[0].data[0::100][:][-3], data.elements[0].data[0::100][:][-2], data.elements[0].data[0::100][:][-1]), alpha=0.2)
-     
+# Method to rotate the y axis.
+def rotation_matrix_y(radian):
+    cos, sin = math.cos(radian), math.sin(radian)
+    return np.array([[cos, 0, sin], [0, 1, 0], [-sin, 0, cos]])
 
-#print(nearest_block_colour("614f24"))
+# Method to rotate the x axis.
+def rotation_matrix_x(radian):
+    cos, sin = math.cos(radian), math.sin(radian)
+    return np.array([[1, 0, 0], [0, cos, -sin], [0, sin, cos]])
 
-#block_array = np.zeros((100, 100, 50))
-
-# Point transformed/point_in_blocks will be point * factor1 + factor2 (transform the graph)
-# Block array of 1/0's/colours to show a point exists
-# Key words to google (convert pointcloud to voxel)
-
-#for i in range(len(data.elements[0].data[0::500])):
-    #point = data.elements[0].data[0::500][i]  # make it xyz later      
-    #[i][3] = '#%02x%02x%02x' % (data.elements[0].data[0::500][i][-3], data.elements[0].data[0::500][i][-2], data.elements[0].data[0::500][i][-1])
-
-
-
-
-
-
-
-
-#Try doing without the loop
-#abs pose mins in recon settings
-#3dim numpy array (or 4 for colour) for actual array of blocks, each axis is manually picked size-wise, 4th dimension is whether there is or isnt a block. (Or could be 0 red, 1 green, 2 blue)
-# Dont worry about colours for now, just get actual blocks in place.
-# https://matplotlib.org/stable/gallery/mplot3d/scatter3d.html 3d scatterplot
-# https://matplotlib.org/stable/gallery/mplot3d/voxels.html visualizing blocks 
-# Sketchfab models, free to download, if club doesnt work.
+# Method to rotate the z axis.
+def rotation_matrix_z(radian):
+    cos, sin = math.cos(radian), math.sin(radian)
+    return np.array([[cos, 0, sin], [0, 1, 0], [-sin, 0, cos]])
