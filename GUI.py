@@ -3,6 +3,7 @@ from tkinter.filedialog import askdirectory
 from tkinter import ttk
 import subprocess
 import os
+import io
 import shutil
 from Graphing import *
 
@@ -58,7 +59,7 @@ def gui():
     
     # Create a tick box to allow the user to overwrite the folder protection check.
     Overwrite = tk.BooleanVar()
-    tick_box = tk.Checkbutton(UserInterface, text="Tick this box to overwrite existing image folder", font=('Helvetica bold', 12), height=1, variable=Overwrite)
+    tick_box = tk.Checkbutton(UserInterface, text="Tick this box to overwrite existing structure folder", font=('Helvetica bold', 12), height=1, variable=Overwrite)
     tick_box.place(x=370, y=100)
 
     # Button to start the process and open the folder search window.
@@ -92,11 +93,11 @@ def gui():
 
 
     # Button to send the input to Graphing.py to create the structure.
-    button_place_structure = tk.Button(UserInterface, text="Place", font=('Helvetica bold', 12), height=1, width=15, command=lambda: change_structure(plane_horz, plane_vert, size_scaling.get(), "place", current_dir))
+    button_place_structure = tk.Button(UserInterface, text="Place", font=('Helvetica bold', 12), height=1, width=15, command=lambda: change_structure(plane_horz, plane_vert, size_scaling.get(), "place", current_dir, text_box))
     button_place_structure.place(x=300, y=500)
 
     # Button to send the input to Grahping.py to remove the structure.
-    button_clear_structure = tk.Button(UserInterface, text="Clear", font=('Helvetica bold', 12), height=1, width=15, command=lambda: change_structure(plane_horz, plane_vert, size_scaling.get(), "clear", current_dir))
+    button_clear_structure = tk.Button(UserInterface, text="Clear", font=('Helvetica bold', 12), height=1, width=15, command=lambda: change_structure(plane_horz, plane_vert, size_scaling.get(), "clear", current_dir, text_box))
     button_clear_structure.place(x=450, y=500)
 
 
@@ -130,13 +131,13 @@ def change_value(orientation=None, text_box=None):
         # Print the rotation changes in the console.
         text_box.insert(tk.END, "\nHorizontal Change: {}".format(plane_horz))
         text_box.insert(tk.END, "\nVertical Change: {}".format(plane_vert))
-        text_box.insert(tk.END, "\n -------------------")
+        text_box.insert(tk.END, "\n ------------------- \n")
         text_box.see(tk.END)
         text_box.update()
         
     
 # Method to sned the parameters and start Graphing.py.
-def change_structure(plane_horz, plane_vert, size_scaling, instruction, current_dir):
+def change_structure(plane_horz, plane_vert, size_scaling, instruction, current_dir, text_box):
      
     # Finds Graphing.py in the same working fodler.
     main_file = os.path.join(current_dir, "Graphing.py")
@@ -144,19 +145,41 @@ def change_structure(plane_horz, plane_vert, size_scaling, instruction, current_
     
     # Runs the file, if found, with the parameters it needs to rotate, scale the size and distinguish whether to place or clear the structure. 
     try:
-        print("Found file")
-        exec(open(main_file).read())
-        start(plane_horz, plane_vert, size_scaling, instruction)
+        text_box.insert(tk.END, "Found file \n")
+        text_box.see(tk.END)
+        text_box.update()
         
-    except ConnectionRefusedError:
+        command = ["python", "-c", "import Graphing; Graphing.start({}, {}, {}, '{}')".format(plane_horz, plane_vert, size_scaling, instruction)]
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+        
+        for line in iter(process.stdout.readline, ""):
+            text_box.insert(tk.END, line)
+            text_box.see(tk.END)
+            text_box.update()
+        
+        process.wait()
+
+        if process.returncode != 0:
+            print("An error occurred while running Graphing.py. Stopping Graphing.py.")
+            process.terminate()
+
+    except MinecraftConnectionError as e:
         # connection failed
-        print("Failed to launch file")
+        print("Failed to connect to Minecraft server.", e.message)
+        process.terminate()
+
+    except ConnectionRefusedError:
+        print("Failed to launch file.")
+         
 
     
 
 # This method outputs the console output to the text box on the GUi.
 def start_process(text_box, Overwrite):
         
+
+
+    
         # Calls the col_process function
         command = ["python", "-c", "import io; from GUI import col_process; col_process({})".format(Overwrite.get())]
         process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
@@ -165,6 +188,7 @@ def start_process(text_box, Overwrite):
             text_box.insert(tk.END, line)
             text_box.see(tk.END)
             text_box.update()
+
 
         process.stdout.close()
         return_code = process.wait()

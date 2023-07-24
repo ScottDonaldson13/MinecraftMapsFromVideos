@@ -3,6 +3,7 @@ import numpy as np
 from mcpi.minecraft import Minecraft
 import os
 import math
+import sys
 
 
 
@@ -17,6 +18,10 @@ import math
 
 
 '''
+
+class MinecraftConnectionError(Exception):
+    def __init__(self, message):
+        self.message = message
 
 def start(plane_horz, plane_vert, size_scaling, instruction):
 
@@ -33,7 +38,7 @@ def start(plane_horz, plane_vert, size_scaling, instruction):
     # Takes the file from the workplace and adds it to an array using Plyfile module.
     data = PlyData.read(data_directory)
 
-    # Dictionary of block, their colours and their respective ingame ID's.
+    # Dictionary of blocks, their colours and their respective ingame ID's.
     block_colour = {
     '#c86646': [5, 4], #acacia plank
     '#969795': [1, 5], #andesite
@@ -151,7 +156,11 @@ def start(plane_horz, plane_vert, size_scaling, instruction):
         print("Connected to Minecraft server")
     except ConnectionRefusedError:
         # connection failed
-        print("Failed to connect to Minecraft server")
+        message = "Failed to connect to Minecraft server, is the server running?"
+        print(message)
+        raise MinecraftConnectionError()
+        
+               
 
 
     # Centralising the voxel so it can be cleanly rotated, then rounding it so it can be dealt with as an int.
@@ -256,13 +265,13 @@ def rotate_voxel(array, plane_horz, plane_vert):
     transformed_horz, transformed_vert = np.radians(plane_horz), np.radians(plane_vert)
 
     # Each axis is sent to its own method to be rotated as they use different equations.
-    rotated_y = rotation_matrix_y(transformed_vert)
+    rotated_y = rotation_matrix_y(transformed_horz)
     rotated_array = np.dot(array, rotated_y)
 
-    rotated_x = rotation_matrix_x(transformed_horz)
+    rotated_x = rotation_matrix_x(transformed_vert)
     rotated_array = np.dot(rotated_array, rotated_x)
 
-    rotated_z = rotation_matrix_z(transformed_horz)
+    rotated_z = rotation_matrix_z(transformed_vert)
     rotated_array = np.dot(rotated_array, rotated_z)
 
     return rotated_array
