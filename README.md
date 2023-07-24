@@ -5,9 +5,20 @@ Welcome to the Minecraft Maps from Videos Program!
 
 This program allows a user to take an room or building from the real world and place it directly into the game Minecraft.
 
-To begin using this program launch the MinecraftMapsFromVideos.bat file found in the downloaded folder from GitHub.
+Make sure to have a clean install of Java and Python.
+This can be found at https://www.oracle.com/uk/java/technologies/downloads/#jdk17-windows for Java (Make sure it is Java 17).
+And use https://www.python.org/downloads/ for Python.
+
+Next, enter a command prompt at the location where you placed the programs files. (This can be done by entering the folder containing MinecraftMapsFromVideos, clicking on the folder directory
+at the top and replacing it with cmd).
+
+From there enter the following command: pip install -r requirements.txt
+
+If any errors occur when doing this please make sure a correct Python environment is installed.
 
 ----
+
+To begin using this program launch the MinecraftMapsFromVideos.bat file found in the downloaded folder from GitHub.
 
 If this is the first time you are using the program or you want to create a new project please make sure to tick the tick box labelled "Tick this box to overwrite exisiting structure folder."
 Once that is ticked press "Press button to start" and select the folder that holds the images of the place you want to transfer into Minecraft.
