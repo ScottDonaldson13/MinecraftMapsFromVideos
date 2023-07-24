@@ -3,11 +3,17 @@ from tkinter.filedialog import askdirectory
 from tkinter import ttk
 import subprocess
 import os
-import io
 import shutil
 from Graphing import *
+import pkg_resources
 
-
+def get_library_version(library_name):
+    try:
+        return pkg_resources.get_distribution(library_name).version
+    except pkg_resources.DistributionNotFound:
+        return None
+    
+print("version:", get_library_version("subprocess"))    
 '''
 
     This code is written by Scott Donaldson (2474880D)
