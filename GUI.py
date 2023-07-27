@@ -206,8 +206,9 @@ def col_process(Overwrite=False):
         # Looks to where the workspace directory will be created, and if prompted by the user removes the existing one and replaces it with an empty one.
         workspace= "workspace"
         folder_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), workspace)
+        
         if os.path.exists(folder_path) != True:
-             os.mkdir(folder_path)
+            os.mkdir(folder_path)
              
         if Overwrite and os.path.exists(folder_path):
             shutil.rmtree(folder_path)
