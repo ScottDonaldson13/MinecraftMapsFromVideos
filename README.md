@@ -2,6 +2,7 @@
 Project repo for my University Project- Minecraft Maps from Videos
 
 Welcome to the Minecraft Maps from Videos Program!
+The Official Github repository is at https://github.com/ScottDonaldson13/MinecraftMapsFromVideos
 
 This program allows a user to take a room or building from the real world and place it directly into the game Minecraft.
 
